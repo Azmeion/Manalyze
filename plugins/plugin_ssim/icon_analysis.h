@@ -6,7 +6,7 @@
 #include <sstream>
 #include <boost/cstdint.hpp>
 
-#define ICON_SIZE 256 // For testing purposes.
+#define MIN_ICON_SIZE 16 // For testing purposes.
 
 // typedef unsigned char   BYTE; // 1B
 // typedef unsigned short  WORD; // 2B
@@ -99,17 +99,19 @@ struct PNGIMAGE
 class dataIcon {
 
   std::vector<unsigned int> grayTable;
-  float mean = 0;
-  float variance = 0;
+  WORD dim;
+  float mean;
+  float variance;
   public :
-    dataIcon() {};
-    dataIcon(std::vector<RGBQUAD>);   // Create a dataIcon to compare it with the database
+    dataIcon() : mean(0), variance(0), dim(0) {};
+    dataIcon(const std::vector<RGBQUAD> &, const WORD &);   // Create a dataIcon to compare it with the database
                                       // TODO : Add height and width of the used bitmap image for different sizes
     ~dataIcon() {};
 
-    float getMean() { return mean; };
-    float getVariance() { return variance; };
-    float ssim (dataIcon);            // Value between 0 and 1
+    WORD getDim() const { return dim; };
+    float getMean() const { return mean; };
+    float getVariance() const { return variance; };
+    float ssim (dataIcon &);            // Value between 0 and 1
 };
 
 //Single icon.
@@ -121,15 +123,15 @@ class Icon {
 
   public : 
     Icon() {};
-    Icon(ICONDIRENTRY & pIconDir, std::vector<BYTE> buffer, int & nbBytesRead);
+    Icon(ICONDIRENTRY & pIconDir, const std::vector<BYTE> & buffer, int & nbBytesRead);
     ~Icon() {};
-    unsigned long getNbrPixel() {return nbrPixel;};
-    dataIcon getData() {return data;};
-    
+    boost::int64_t getNbrPixel() const {return nbrPixel;};
+    dataIcon getData() const {return data;};
 };
 
 void fileToBuf(const char *, std::vector<BYTE> &);
-dataIcon icoEntriesRead(ICONDIR *, std::vector<BYTE>, int &);
-void icoHeaderRead(ICONDIR *, std::vector<BYTE>, int &);
+std::vector<dataIcon> icoEntriesRead(const ICONDIR *, const std::vector<BYTE> &, int &);//, std::vector<dataIcon> &);
+void icoHeaderRead(ICONDIR *, const std::vector<BYTE> &, int &);
+bool icoSort(const dataIcon &, const dataIcon &);
 
 #endif

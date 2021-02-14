@@ -136,7 +136,7 @@ endif()
 add_library(plugin_ssim SHARED plugins/plugin_ssim/plugin_ssim.cpp
                                plugins/plugin_ssim/lodepng.cpp
                                plugins/plugin_ssim/icon_analysis.cpp)
-target_link_libraries(plugin_ssim manape hash-library manacommons)
+target_link_libraries(plugin_ssim manape hash-library manacommons ${Boost_LIBRARIES})
 
 # yara dependency
 add_subdirectory(external/yara)

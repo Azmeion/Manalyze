@@ -1,4 +1,4 @@
-#include "/home/shadows/Documents/Manalyze/Manalyze/include/plugin_framework/plugin_interface.h"
+#include "plugin_framework/plugin_interface.h"
 #include "icon_analysis.h"
 #include "lodepng.h"
 #include <fstream>
@@ -47,41 +47,67 @@ class HelloWorldPlugin : public IPlugin
         ICONDIR * pIconDir2 = new ICONDIR; // TODO : Utiliser des jolis pointeurs.
         std::vector<BYTE> buffer2;
         //fileToBuf("/home/shadows/Documents/Manalyze/Manalyze/plugins/plugin_ssim/dataicon/app.ico", buffer);
-        fileToBuf("/home/shadows/Documents/Manalyze/Manalyze/plugins/plugin_ssim/dataicon/office.ico", buffer2); //Path à configurer
-        dataIcon math, office;
-        float result;
+        fileToBuf("/home/shadows/Documents/Manalyze/ManaNous/Manalyze/plugins/plugin_ssim/dataicon/app.ico", buffer2);
+        std::vector<dataIcon> math, office;
+        float result = 0, h_result = 0;
+        WORD info_dim = 0, dim_m, dim_o;
+        int nbBytesRead;
 
         if (!buffer.empty())
         {
-            int nbBytesRead = 0;
+            nbBytesRead = 0;
             icoHeaderRead(pIconDir, buffer, nbBytesRead);
-            math = icoEntriesRead(pIconDir, buffer, nbBytesRead);
+            math = icoEntriesRead(pIconDir, buffer, nbBytesRead);//, math);
             delete pIconDir;
             buffer.clear();
         }
+
+        std::cout << std::endl;
+
         if (!buffer2.empty())
         {
-            int nbBytesRead = 0;
+            nbBytesRead = 0;
             icoHeaderRead(pIconDir2, buffer2, nbBytesRead);
-            office = icoEntriesRead(pIconDir2, buffer2, nbBytesRead);
+            office = icoEntriesRead(pIconDir2, buffer2, nbBytesRead);//, office);
             delete pIconDir2;
             buffer2.clear();
         }
 
-        if(math.getMean() && office.getMean())
-        {
-            result = office.ssim(math);
+        std::cout << std::endl;
+
+        // if(math.front().getDim() && office.front().getDim())
+        // {
+        //     h_result = office.front().ssim(math.front());
+        //     info_dim = math.front().getDim();
+        // }
+
+        for (dataIcon im : math) {
+            for (dataIcon io : office) {
+                dim_m = im.getDim();
+                dim_o = io.getDim();
+                if (dim_m && dim_o && dim_m == dim_o) {
+                    result = im.ssim(io);
+                    std::cout << im.getMean() << " ; " << io.getMean() << std::endl;
+                    std::cout << im.getVariance() << " ; " << io.getVariance() << std::endl;
+                    std::cout << dim_o << " : " << result << std::endl;
+                    if (h_result < result) {
+                        h_result = result;
+                        info_dim = dim_m;
+                    }
+                }
+            }
         }
+
 
         res->set_level(SUSPICIOUS);
         res->set_summary("Similarity with an icon");
 
-        std::string test_visu = "Discord : " + std::to_string(result);
+        std::string test_visu = "Discord : " + std::to_string(h_result);
 
         info_en_plus.push_back(test_visu);
 
-        res->add_information("Highest similarity ", result);
-        res->add_information("Icon size ", "128x128");
+        res->add_information("Highest similarity ", h_result);
+        res->add_information("Icon size ", std::to_string(info_dim) + "x" + std::to_string(info_dim));
         res->add_information("Similar icons ", info_en_plus);
 /**/
         return res;
