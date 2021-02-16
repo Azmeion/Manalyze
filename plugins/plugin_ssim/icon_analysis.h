@@ -8,18 +8,10 @@
 
 #define MIN_ICON_SIZE 16 // For testing purposes.
 
-// typedef unsigned char   BYTE; // 1B
-// typedef unsigned short  WORD; // 2B
-// typedef unsigned int    DWORD; // 4B
-// typedef unsigned long    LONG; // 8B
-// extern const BYTE PNG_SIG[];
-
-
 typedef boost::uint8_t BYTE;
 typedef boost::uint16_t WORD;
 typedef boost::uint32_t DWORD;
 typedef boost::uint64_t LONG;
-
 
 typedef class tagICONDIRENTRY
 {
@@ -97,17 +89,21 @@ struct PNGIMAGE
 };
 
 class dataIcon {
-
-  std::vector<unsigned int> grayTable;
+  std::string name;
+  std::vector<BYTE> grayTable;
   WORD dim;
   float mean;
   float variance;
+
   public :
-    dataIcon() : mean(0), variance(0), dim(0) {};
-    dataIcon(const std::vector<RGBQUAD> &, const WORD &);   // Create a dataIcon to compare it with the database
+    dataIcon() : dim(0), mean(0), variance(0) {};
+    dataIcon(const std::string &, const std::vector<RGBQUAD> &, const WORD &);   // Create a dataIcon to compare it with the database
                                       // TODO : Add height and width of the used bitmap image for different sizes
+    dataIcon(const std::string & n, const std::vector<BYTE> & g, const WORD & d, const float & m, const float & v) : name(n), grayTable(g), dim(d), mean(m), variance(v) {};
     ~dataIcon() {};
 
+    std::string getName() const { return name; };
+    std::vector<BYTE>* getGrayTable() { return &grayTable; }; // Par pointeur pour eviter la copie retournee. (Passage en const ?)
     WORD getDim() const { return dim; };
     float getMean() const { return mean; };
     float getVariance() const { return variance; };
@@ -116,22 +112,22 @@ class dataIcon {
 
 //Single icon.
 class Icon {
-  ICONDIRENTRY * pIconDir;
+  ICONDIRENTRY * pIconDir = nullptr;
   dataIcon data;
   bool png = false;
-  unsigned long nbrPixel;
+  unsigned long nbrPixel = 0;
 
   public : 
     Icon() {};
-    Icon(ICONDIRENTRY & pIconDir, const std::vector<BYTE> & buffer, int & nbBytesRead);
+    Icon(ICONDIRENTRY & pIconDir, const std::vector<BYTE> & buffer, const std::string &, LONG & nbBytesRead);
     ~Icon() {};
     boost::int64_t getNbrPixel() const {return nbrPixel;};
     dataIcon getData() const {return data;};
 };
 
-void fileToBuf(const char *, std::vector<BYTE> &);
-std::vector<dataIcon> icoEntriesRead(const ICONDIR *, const std::vector<BYTE> &, int &);//, std::vector<dataIcon> &);
-void icoHeaderRead(ICONDIR *, const std::vector<BYTE> &, int &);
+void fileToBuf(const std::string &, std::vector<BYTE> &);
+std::vector<dataIcon> icoEntriesRead(const ICONDIR *, const std::vector<BYTE> &, const std::string &, LONG &);
+void icoHeaderRead(ICONDIR *, const std::vector<BYTE> &, LONG &);
 bool icoSort(const dataIcon &, const dataIcon &);
 
 #endif

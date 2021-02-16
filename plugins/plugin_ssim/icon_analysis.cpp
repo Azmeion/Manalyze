@@ -9,13 +9,13 @@
 
 const BYTE PNG_SIG[8] = {137,80,78,71,13,10,26,10};
 
-dataIcon::dataIcon(const std::vector<RGBQUAD> & rgba_colors, const WORD & dim) : dim(dim), mean(0), variance(0) {
+dataIcon::dataIcon(const std::string & name, const std::vector<RGBQUAD> & rgba_colors, const WORD & dim) : name(name), dim(dim), mean(0), variance(0) {
 
     grayTable.reserve(dim * dim);
 
     float luma,r,g,b;
-    for (int i = 0; i < dim; ++i) {
-        for (int j = 0; j < dim; ++j) {
+    for (WORD i = 0; i < dim; ++i) {
+        for (WORD j = 0; j < dim; ++j) {
 
             r = (float) rgba_colors[i * dim + j].rgbRed;
             g = (float) rgba_colors[i * dim + j].rgbGreen;
@@ -45,16 +45,15 @@ float dataIcon::ssim(dataIcon & database_icon) {
     float c2 = 0.03f * (dim - 1);
     c2 = c2*c2;
 
-    std::vector<unsigned int>::iterator di_it = database_icon.grayTable.begin();
+    std::vector<BYTE>::iterator di_it = database_icon.grayTable.begin();
 
     //Sample covariance calculation
-    for (unsigned int i_it : grayTable) {
+    for (BYTE i_it : grayTable) {
         cov += (i_it - mean) * (*di_it - database_icon.mean); //
         di_it++;
     }
 
     cov /= dim * dim - 1; // Equivalent probabilities in every point.
-    std::cout << cov << std::endl;
 
     sim = (2 * mean * database_icon.mean + c1) * (2 * abs(cov) + c2);
     sim /= (mean * mean + database_icon.mean * database_icon.mean + c1) * (variance + database_icon.variance + c2);
@@ -62,7 +61,7 @@ float dataIcon::ssim(dataIcon & database_icon) {
     return sim;
 }
 
-void icoHeaderRead(ICONDIR * pIconDir, const std::vector<BYTE> & buffer, int & nbBytesRead) {
+void icoHeaderRead(ICONDIR * pIconDir, const std::vector<BYTE> & buffer, LONG & nbBytesRead) {
     // On pourrait aussi faire des constructeurs à la place des memcpy.
     memcpy(&(pIconDir->idReserved), &buffer[nbBytesRead], sizeof(WORD)); //Must be 0. (Reserved bytes.)
     nbBytesRead += sizeof(WORD);
@@ -76,35 +75,28 @@ void icoHeaderRead(ICONDIR * pIconDir, const std::vector<BYTE> & buffer, int & n
     // Read the ICONDIRENTRY elements (size 16)
     for (LONG i = 0; i<pIconDir->idCount ; ++i)
     {
-        // char * elt = new char [sizeof(ICONDIRENTRY)];
-        // memcpy(elt, buffer+nbBytesRead, sizeof(ICONDIRENTRY));
-        // nbBytesRead += sizeof(ICONDIRENTRY);
-        // ICONDIRENTRY icon(elt);
         pIconDir->idEntries.push_back(*((ICONDIRENTRY*)(&buffer[nbBytesRead])));
         nbBytesRead += sizeof(ICONDIRENTRY);
-        // delete elt;
     }
 }
 
 template<typename T> 
-int vectorCpy(std::vector<T> & vector, const unsigned long & nbrPixel, const std::vector<BYTE> & buffer, int & nbBytesRead){
+int vectorCpy(std::vector<T> & vector, const unsigned long & nbrPixel, const std::vector<BYTE> & buffer, LONG & nbBytesRead){
     vector.reserve(nbrPixel);
     vector.assign((T*)(&buffer[nbBytesRead]), (T*)(&buffer[nbBytesRead+nbrPixel*sizeof(T)]));
     nbBytesRead+=nbrPixel*sizeof(T);
     return nbBytesRead;
 };
 
-Icon::Icon(ICONDIRENTRY & icondirentry, const std::vector<BYTE> & buffer, int & nbBytesRead) : png(false), nbrPixel(-1)
+Icon::Icon(ICONDIRENTRY & icondirentry, const std::vector<BYTE> & buffer, const std::string & name, LONG & nbBytesRead) : png(false), nbrPixel(-1)
 {
     unsigned bHeight = icondirentry.getbHeight();
     unsigned bWidth = icondirentry.getbWidth();
     WORD dim = bHeight;
 
-    std::cout << bHeight << " ; " << bWidth << std::endl;
-    if (!(bHeight % MIN_ICON_SIZE) && !(bWidth % MIN_ICON_SIZE)) // || !(bHeight || bWidth)
+    if (!(bHeight % MIN_ICON_SIZE) && !(bWidth % MIN_ICON_SIZE))
     {
         pIconDir = &icondirentry;
-        // pIconImage->icHeader.biHeight.to_ullong()/2*pIconImage->icHeader.biWidth.to_ullong(); // Taille des masques.
         if (!(nbrPixel = bHeight*bWidth)) {
             nbrPixel = 65536;
             dim = 256;
@@ -133,7 +125,7 @@ Icon::Icon(ICONDIRENTRY & icondirentry, const std::vector<BYTE> & buffer, int & 
                 rgb->rgbReserved = (*p);
                 icColor.push_back(*rgb); //Is ok.
             }
-            data = dataIcon(icColor, dim);
+            data = dataIcon(name, icColor, dim);
             delete rgb;
         }
         else 
@@ -146,28 +138,28 @@ Icon::Icon(ICONDIRENTRY & icondirentry, const std::vector<BYTE> & buffer, int & 
             vectorCpy(pIconImage->icColors, nbrPixel, buffer, nbBytesRead);
             //vectorCpy(pIconImage->icXOR, nbrPixel, buffer, nbBytesRead);
             //vectorCpy(pIconImage->icAND, nbrPixel, buffer, nbBytesRead);
-            data = dataIcon(pIconImage->icColors, dim);
+            data = dataIcon(name, pIconImage->icColors, dim);
 
             delete pIconImage;
         }
     }
 }
 
-std::vector<dataIcon> icoEntriesRead(const ICONDIR * pIconDir, const std::vector<BYTE> & buffer, int & nbBytesRead) {//, std::vector<dataIcon> & icoList) {
+std::vector<dataIcon> icoEntriesRead(const ICONDIR * pIconDir, const std::vector<BYTE> & buffer, const std::string & name, LONG & nbBytesRead) {
     std::vector<dataIcon> data;
     for (ICONDIRENTRY ico : pIconDir->idEntries)
     {
-        Icon * i = new Icon(ico, buffer, nbBytesRead);
-        if (i->getNbrPixel() != -1) { // Évite que data soit accidentellement purgé en attendant qu'on gère tous nos trucs.
+        Icon * i = new Icon(ico, buffer, name, nbBytesRead);
+        if (i->getNbrPixel() != -1)
+        {
             data.push_back(i->getData());
         }
         delete i;
     }
-    std::sort(data.begin(), data.end(), icoSort);
     return data;
 }
 
-void fileToBuf(const char * fname, std::vector<BYTE> & buffer) // logiquement ça marche avec le vector
+void fileToBuf(const std::string & fname, std::vector<BYTE> & buffer) // logiquement ça marche avec le vector
 {
     std::ifstream is(fname, std::ios::binary);
 
@@ -180,49 +172,9 @@ void fileToBuf(const char * fname, std::vector<BYTE> & buffer) // logiquement ç
         buffer.reserve(length);
         buffer.assign(std::istreambuf_iterator<char>(is),
                         std::istreambuf_iterator<char>());
-        
-        // buffer = new char [length];
-        // is.read(buffer, length);
     }
 }
 
 bool icoSort(const dataIcon & ico1, const dataIcon & ico2) {
-    return ico1.getDim() > ico2.getDim();
+    return ico1.getDim() < ico2.getDim();
 }
-
-/*
-
-int main()
-{
-    // We need an ICONDIR to hold the data
-    ICONDIR * pIconDir = new ICONDIR; // TODO : Utiliser des jolis pointeurs.
-    ICONDIR * pIconDir2 = new ICONDIR; // TODO : Utiliser des jolis pointeurs.
-    char * buffer = fileToBuf("C:\\Users\\Azuro\\Desktop\\Projet\\office.ico");
-    char * buffer2 = fileToBuf("C:\\Users\\Azuro\\Desktop\\Projet\\office2.ico");
-    dataIcon math, office;
-
-    if (buffer)
-    {
-        int nbBytesRead = 0;
-        icoHeaderRead(pIconDir, buffer, nbBytesRead);
-        math = icoEntriesRead(pIconDir, buffer, nbBytesRead);
-        delete pIconDir;
-        delete buffer;
-    }
-    if (buffer2)
-    {
-        int nbBytesRead = 0;
-        icoHeaderRead(pIconDir2, buffer2, nbBytesRead);
-        office = icoEntriesRead(pIconDir2, buffer2, nbBytesRead);
-        delete pIconDir2;
-        delete buffer2;
-    }
-    if(math.getMean() && office.getMean())
-    {
-        float result = office.ssim(math);
-        std::cout << result;
-    }
-    return 0;
-}
-
-*/
