@@ -84,3 +84,7 @@ external/
 
 # Signing script
 bin/sign_all.bat
+
+# SSIM Plugin
+plugins/plugin_ssim/dataicon/ico/*
+plugins/plugin_ssim/dataicon/json/*

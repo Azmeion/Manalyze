@@ -1,165 +1,174 @@
-#include "icon_analysis.h"
-#include "lodepng.h"
 #include <fstream>
-#include <cstring>
-#include <sstream>
-#include <algorithm>
 #include <math.h>
 #include <iostream>
 
-const BYTE PNG_SIG[8] = {137,80,78,71,13,10,26,10};
+#include "icon_analysis.h"
+#include "lodepng.h"
 
-dataIcon::dataIcon(const std::string & name, const std::vector<RGBQUAD> & rgba_colors, const WORD & dim) : name(name), dim(dim), mean(0), variance(0) {
+namespace plugin
+{
 
-    grayTable.reserve(dim * dim);
+DataIcon::DataIcon(const std::string& name, const std::vector<RGBQuad>& rgba_colors, const Word& dimension) : _name(name), _dimension(dimension), _mean(0), _variance(0)
+{
+    _gray_table.reserve(dimension * dimension);
 
     float luma,r,g,b;
-    for (WORD i = 0; i < dim; ++i) {
-        for (WORD j = 0; j < dim; ++j) {
-
-            r = (float) rgba_colors[i * dim + j].rgbRed;
-            g = (float) rgba_colors[i * dim + j].rgbGreen;
-            b = (float) rgba_colors[i * dim + j].rgbBlue;
+    for (Word i = 0; i < dimension; ++i)
+    {
+        for (Word j = 0; j < dimension; ++j)
+        {
+            r = (float) rgba_colors[i * dimension + j].rgb_red;
+            g = (float) rgba_colors[i * dimension + j].rgb_green;
+            b = (float) rgba_colors[i * dimension + j].rgb_blue;
 
             luma = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-            mean += luma;
-            grayTable.push_back((BYTE) luma);
+            _mean += luma;
+            _gray_table.push_back((Byte) luma);
         }
     }
 
-    mean /= dim*dim;
+    _mean /= dimension*dimension;
 
-    for (BYTE gray : grayTable) {
-        luma = gray - mean;
-        variance += luma * luma;
+    for (Byte gray : _gray_table)
+    {
+        luma = gray - _mean;
+        _variance += luma * luma;
     }
 
-    variance /= (dim * dim - 1);
+    _variance /= (dimension * dimension - 1);
 }
 
-float dataIcon::ssim(dataIcon & database_icon) {
-    
+// ----------------------------------------------------------------------------
+
+float DataIcon::ssim(DataIcon& database_icon)
+{
     float cov = 0.0, sim;
-    float c1 = 0.01f * (dim - 1);
+    float c1 = 0.01f * (_dimension - 1);
     c1 = c1*c1;
-    float c2 = 0.03f * (dim - 1);
+    float c2 = 0.03f * (_dimension - 1);
     c2 = c2*c2;
 
-    std::vector<BYTE>::iterator di_it = database_icon.grayTable.begin();
+    std::vector<Byte>::iterator di_it = database_icon._gray_table.begin();
 
     //Sample covariance calculation
-    for (BYTE i_it : grayTable) {
-        cov += (i_it - mean) * (*di_it - database_icon.mean); //
+    for (Byte i_it : _gray_table) {
+        cov += (i_it - _mean) * (*di_it - database_icon._mean);
         di_it++;
     }
 
-    cov /= dim * dim - 1; // Equivalent probabilities in every point.
+    cov /= _dimension * _dimension - 1; // Equivalent probabilities in every point.
 
-    sim = (2 * mean * database_icon.mean + c1) * (2 * abs(cov) + c2);
-    sim /= (mean * mean + database_icon.mean * database_icon.mean + c1) * (variance + database_icon.variance + c2);
+    sim = (2 * _mean * database_icon._mean + c1) * (2 * abs(cov) + c2);
+    sim /= (_mean * _mean + database_icon._mean * database_icon._mean + c1) * (_variance + database_icon._variance + c2);
 
     return sim;
 }
 
-void icoHeaderRead(ICONDIR * pIconDir, const std::vector<BYTE> & buffer, LONG & nbBytesRead) {
+// ----------------------------------------------------------------------------
+
+void ico_header_read(boost::shared_ptr<IconDir>& p_icondir, const std::vector<Byte>& buffer, Long& nb_bytes_read) {
     // On pourrait aussi faire des constructeurs à la place des memcpy.
-    memcpy(&(pIconDir->idReserved), &buffer[nbBytesRead], sizeof(WORD)); //Must be 0. (Reserved bytes.)
-    nbBytesRead += sizeof(WORD);
+    memcpy(&(p_icondir->id_reserved), &buffer[nb_bytes_read], sizeof(Word));
+    nb_bytes_read += sizeof(Word);
 
-    memcpy(&(pIconDir->idType), &buffer[nbBytesRead], sizeof(WORD)); // Must be 1. (ICO type.)
-    nbBytesRead += sizeof(WORD);
+    memcpy(&(p_icondir->id_type), &buffer[nb_bytes_read], sizeof(Word));
+    nb_bytes_read += sizeof(Word);
 
-    memcpy(&(pIconDir->idCount), &buffer[nbBytesRead], sizeof(WORD)); // Number of images.
-    nbBytesRead += sizeof(WORD);
+    memcpy(&(p_icondir->id_count), &buffer[nb_bytes_read], sizeof(Word));
+    nb_bytes_read += sizeof(Word);
 
-    // Read the ICONDIRENTRY elements (size 16)
-    for (LONG i = 0; i<pIconDir->idCount ; ++i)
+    // Read the IconDirentry elements (size 16)
+    for (Long i = 0; i < p_icondir->id_count ; ++i)
     {
-        pIconDir->idEntries.push_back(*((ICONDIRENTRY*)(&buffer[nbBytesRead])));
-        nbBytesRead += sizeof(ICONDIRENTRY);
+        p_icondir->id_entries.push_back(*((IconDirentry*)(&buffer[nb_bytes_read])));
+        nb_bytes_read += sizeof(IconDirentry);
     }
 }
 
+// ----------------------------------------------------------------------------
+
 template<typename T> 
-int vectorCpy(std::vector<T> & vector, const unsigned long & nbrPixel, const std::vector<BYTE> & buffer, LONG & nbBytesRead){
-    vector.reserve(nbrPixel);
-    vector.assign((T*)(&buffer[nbBytesRead]), (T*)(&buffer[nbBytesRead+nbrPixel*sizeof(T)]));
-    nbBytesRead+=nbrPixel*sizeof(T);
-    return nbBytesRead;
+void vector_cpy(std::vector<T>& vector, const boost::int64_t& nbr_pixel, const std::vector<Byte>& buffer, Long& nb_bytes_read){
+    vector.reserve(nbr_pixel);
+    vector.assign((T*)(&buffer[nb_bytes_read]), (T*)(&buffer[nb_bytes_read + nbr_pixel * sizeof(T)]));
+    nb_bytes_read += nbr_pixel * sizeof(T);
 };
 
-Icon::Icon(ICONDIRENTRY & icondirentry, const std::vector<BYTE> & buffer, const std::string & name, LONG & nbBytesRead) : png(false), nbrPixel(-1)
-{
-    unsigned bHeight = icondirentry.getbHeight();
-    unsigned bWidth = icondirentry.getbWidth();
-    WORD dim = bHeight;
+// ----------------------------------------------------------------------------
 
-    if (!(bHeight % MIN_ICON_SIZE) && !(bWidth % MIN_ICON_SIZE))
+Icon::Icon(IconDirentry& icondirentry, const std::vector<Byte>& buffer, const std::string& name, Long& nb_bytes_read) : _png(false), _nbr_pixel(-1)
+{
+    unsigned b_height = icondirentry.b_height;
+    unsigned b_width = icondirentry.b_width;
+    Word dimension = b_height;
+    const Byte Png_Sig[8] = {137,80,78,71,13,10,26,10};
+
+    if (!(b_height % MIN_ICON_SIZE) && !(b_width % MIN_ICON_SIZE))
     {
-        pIconDir = &icondirentry;
-        if (!(nbrPixel = bHeight*bWidth)) {
-            nbrPixel = 65536;
-            dim = 256;
+        _p_icondir = boost::shared_ptr<IconDirentry>(new TagIconDirentry(icondirentry));
+        if (!(_nbr_pixel = b_height * b_width)) {
+            _nbr_pixel = 65536;
+            dimension = 256;
         }
 
-        nbBytesRead = icondirentry.getOffset();
-        if (!strncmp((const char *)&buffer[nbBytesRead], (char*)PNG_SIG, 8))
+        nb_bytes_read = icondirentry.dw_image_offset;
+        if (!strncmp((const char*)&buffer[nb_bytes_read], (char*)Png_Sig, 8))
         {
-            png = true;
-            std::vector<BYTE> image;
-            unsigned error = lodepng::decode(image, bHeight, bWidth, (const unsigned char*)(&buffer[nbBytesRead]), (size_t)icondirentry.getBytesInRes());
+            _png = true;
+            std::vector<Byte> image;
+            unsigned error = lodepng::decode(image, b_height, b_width, (const unsigned char*)(&buffer[nb_bytes_read]), (size_t)icondirentry.dw_bytes_in_res);
             //if there's an error, display it
             if(error) std::cout << "PNG decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
             //the pixels are now in the vector "image", 4 bytes per pixel, ordered RGBARGBA..., use it as texture, draw it, ...
 
-            std::vector<RGBQUAD> icColor;
-            RGBQUAD * rgb = new RGBQUAD;
-            for (std::vector<BYTE>::iterator p = image.begin() ; p!=image.end(); p++)
+            std::vector<RGBQuad> ic_color;
+            boost::shared_ptr<RGBQuad> rgb(new RGBQuad);
+            for (std::vector<Byte>::iterator p = image.begin() ; p!=image.end(); p++)
             {
-                rgb->rgbRed = (*p);
+                rgb->rgb_red = (*p);
                 p++;
-                rgb->rgbGreen = (*p);
+                rgb->rgb_green = (*p);
                 p++;
-                rgb->rgbBlue = (*p);
+                rgb->rgb_blue = (*p);
                 p++;
-                rgb->rgbReserved = (*p);
-                icColor.push_back(*rgb); //Is ok.
+                rgb->rgb_reserved = (*p);
+                ic_color.push_back(*rgb); //Is ok.
             }
-            data = dataIcon(name, icColor, dim);
-            delete rgb;
+            _data = DataIcon(name, ic_color, dimension);
         }
         else 
         {
-            ICONIMAGE * pIconImage = new ICONIMAGE;
-            memcpy(&(pIconImage->icHeader), &buffer[nbBytesRead], sizeof(BITMAPINFOHEADER));
-            nbBytesRead += sizeof(BITMAPINFOHEADER);
+            boost::shared_ptr<IconImage> p_icon_image(new IconImage);
+            memcpy(&(p_icon_image->ic_header), &buffer[nb_bytes_read], sizeof(BitmapInfoHeader));
+            nb_bytes_read += sizeof(BitmapInfoHeader);
 
             // Experimental
-            vectorCpy(pIconImage->icColors, nbrPixel, buffer, nbBytesRead);
-            //vectorCpy(pIconImage->icXOR, nbrPixel, buffer, nbBytesRead);
-            //vectorCpy(pIconImage->icAND, nbrPixel, buffer, nbBytesRead);
-            data = dataIcon(name, pIconImage->icColors, dim);
-
-            delete pIconImage;
+            vector_cpy(p_icon_image->ic_colors, _nbr_pixel, buffer, nb_bytes_read);
+            //vector_cpy(p_icon_image->ic_xor, _nbr_pixel, buffer, nb_bytes_read);
+            //vector_cpy(p_icon_image->ic_and, _nbr_pixel, buffer, nb_bytes_read);
+            _data = DataIcon(name, p_icon_image->ic_colors, dimension);
         }
     }
 }
 
-std::vector<dataIcon> icoEntriesRead(const ICONDIR * pIconDir, const std::vector<BYTE> & buffer, const std::string & name, LONG & nbBytesRead) {
-    std::vector<dataIcon> data;
-    for (ICONDIRENTRY ico : pIconDir->idEntries)
+// ----------------------------------------------------------------------------
+
+std::vector<DataIcon> ico_entries_read(const boost::shared_ptr<IconDir>& p_icondir, const std::vector<Byte>& buffer, const std::string& name, Long& nb_bytes_read) {
+    std::vector<DataIcon> data;
+    for (IconDirentry ico : p_icondir->id_entries)
     {
-        Icon * i = new Icon(ico, buffer, name, nbBytesRead);
-        if (i->getNbrPixel() != -1)
+        boost::shared_ptr<Icon> i(new Icon(ico, buffer, name, nb_bytes_read));
+        if (i->get_nbr_pixel() != -1)
         {
-            data.push_back(i->getData());
+            data.push_back(i->get_data());
         }
-        delete i;
     }
     return data;
 }
 
-void fileToBuf(const std::string & fname, std::vector<BYTE> & buffer) // logiquement ça marche avec le vector
+// ----------------------------------------------------------------------------
+
+void file_to_buf(const std::string& fname, std::vector<Byte>& buffer)
 {
     std::ifstream is(fname, std::ios::binary);
 
@@ -175,6 +184,10 @@ void fileToBuf(const std::string & fname, std::vector<BYTE> & buffer) // logique
     }
 }
 
-bool icoSort(const dataIcon & ico1, const dataIcon & ico2) {
-    return ico1.getDim() < ico2.getDim();
+// ----------------------------------------------------------------------------
+
+bool ico_sort(const DataIcon& ico1, const DataIcon& ico2) {
+    return ico1.get_dimension() < ico2.get_dimension();
 }
+
+} /* !namespace plugin */
