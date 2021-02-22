@@ -50,14 +50,15 @@ float DataIcon::ssim(DataIcon& database_icon)
 
     std::vector<Byte>::iterator di_it = database_icon._gray_table.begin();
 
-    //Sample covariance calculation
+    // Covariance calculation
     for (Byte i_it : _gray_table) {
         cov += (i_it - _mean) * (*di_it - database_icon._mean);
         di_it++;
     }
 
-    cov /= _dimension * _dimension - 1; // Equivalent probabilities in every point.
+    cov /= _dimension * _dimension - 1;
 
+    // Ssim calculation
     sim = (2 * _mean * database_icon._mean + c1) * (2 * abs(cov) + c2);
     sim /= (_mean * _mean + database_icon._mean * database_icon._mean + c1) * (_variance + database_icon._variance + c2);
 
@@ -67,7 +68,7 @@ float DataIcon::ssim(DataIcon& database_icon)
 // ----------------------------------------------------------------------------
 
 void ico_header_read(boost::shared_ptr<IconDir>& p_icondir, const std::vector<Byte>& buffer, Long& nb_bytes_read) {
-    // On pourrait aussi faire des constructeurs à la place des memcpy.
+    
     memcpy(&(p_icondir->id_reserved), &buffer[nb_bytes_read], sizeof(Word));
     nb_bytes_read += sizeof(Word);
 
@@ -77,7 +78,6 @@ void ico_header_read(boost::shared_ptr<IconDir>& p_icondir, const std::vector<By
     memcpy(&(p_icondir->id_count), &buffer[nb_bytes_read], sizeof(Word));
     nb_bytes_read += sizeof(Word);
 
-    // Read the IconDirentry elements (size 16)
     for (Long i = 0; i < p_icondir->id_count ; ++i)
     {
         p_icondir->id_entries.push_back(*((IconDirentry*)(&buffer[nb_bytes_read])));
@@ -103,38 +103,47 @@ Icon::Icon(IconDirentry& icondirentry, const std::vector<Byte>& buffer, const st
     Word dimension = b_height;
     const Byte Png_Sig[8] = {137,80,78,71,13,10,26,10};
 
+    // Regular icon sizes only
     if (!(b_height % MIN_ICON_SIZE) && !(b_width % MIN_ICON_SIZE))
     {
         _p_icondir = boost::shared_ptr<IconDirentry>(new TagIconDirentry(icondirentry));
+
+        // Value 0 of b_height and b_width equals 256
         if (!(_nbr_pixel = b_height * b_width)) {
             _nbr_pixel = 65536;
             dimension = 256;
         }
 
         nb_bytes_read = icondirentry.dw_image_offset;
+
+        // Icon can be a Bitmap or a PNG
         if (!strncmp((const char*)&buffer[nb_bytes_read], (char*)Png_Sig, 8))
         {
             _png = true;
             std::vector<Byte> image;
             unsigned error = lodepng::decode(image, b_height, b_width, (const unsigned char*)(&buffer[nb_bytes_read]), (size_t)icondirentry.dw_bytes_in_res);
-            //if there's an error, display it
-            if(error) std::cout << "PNG decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
-            //the pixels are now in the vector "image", 4 bytes per pixel, ordered RGBARGBA..., use it as texture, draw it, ...
-
-            std::vector<RGBQuad> ic_color;
-            boost::shared_ptr<RGBQuad> rgb(new RGBQuad);
-            for (std::vector<Byte>::iterator p = image.begin() ; p!=image.end(); p++)
-            {
-                rgb->rgb_red = (*p);
-                p++;
-                rgb->rgb_green = (*p);
-                p++;
-                rgb->rgb_blue = (*p);
-                p++;
-                rgb->rgb_reserved = (*p);
-                ic_color.push_back(*rgb); //Is ok.
+            
+            if(error) {
+                std::cout << "PNG decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
             }
-            _data = DataIcon(name, ic_color, dimension);
+            
+            else
+            {
+                std::vector<RGBQuad> ic_color;
+                boost::shared_ptr<RGBQuad> rgb(new RGBQuad);
+                for (std::vector<Byte>::iterator p = image.begin() ; p!=image.end(); p++)
+                {
+                    rgb->rgb_red = (*p);
+                    p++;
+                    rgb->rgb_green = (*p);
+                    p++;
+                    rgb->rgb_blue = (*p);
+                    p++;
+                    rgb->rgb_reserved = (*p);
+                    ic_color.push_back(*rgb);
+                }
+                _data = DataIcon(name, ic_color, dimension);
+            }
         }
         else 
         {
@@ -142,10 +151,10 @@ Icon::Icon(IconDirentry& icondirentry, const std::vector<Byte>& buffer, const st
             memcpy(&(p_icon_image->ic_header), &buffer[nb_bytes_read], sizeof(BitmapInfoHeader));
             nb_bytes_read += sizeof(BitmapInfoHeader);
 
-            // Experimental
+            
             vector_cpy(p_icon_image->ic_colors, _nbr_pixel, buffer, nb_bytes_read);
-            //vector_cpy(p_icon_image->ic_xor, _nbr_pixel, buffer, nb_bytes_read);
-            //vector_cpy(p_icon_image->ic_and, _nbr_pixel, buffer, nb_bytes_read);
+            //vector_cpy(p_icon_image->ic_xor, _nbr_pixel, buffer, nb_bytes_read);      // Experimental
+            //vector_cpy(p_icon_image->ic_and, _nbr_pixel, buffer, nb_bytes_read);      // Experimental
             _data = DataIcon(name, p_icon_image->ic_colors, dimension);
         }
     }
@@ -158,6 +167,8 @@ std::vector<DataIcon> ico_entries_read(const boost::shared_ptr<IconDir>& p_icond
     for (IconDirentry ico : p_icondir->id_entries)
     {
         boost::shared_ptr<Icon> i(new Icon(ico, buffer, name, nb_bytes_read));
+
+        // If the icon size is not a regular one, don't take it
         if (i->get_nbr_pixel() != -1)
         {
             data.push_back(i->get_data());

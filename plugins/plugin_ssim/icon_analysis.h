@@ -63,6 +63,7 @@ typedef struct TagIconDir
  *  rgb_blue          Blue color  (Must be between 0 and 255)
  *  rgb_green         Green color (Must be between 0 and 255)
  *  rgb_red           Red color   (Must be between 0 and 255)
+ *  rgb_reserved      Alpha for 32-bit images.
  */
 
 typedef struct TagRGBQuad
@@ -70,7 +71,7 @@ typedef struct TagRGBQuad
   Byte rgb_blue;
   Byte rgb_green;
   Byte rgb_red;
-  Byte rgb_reserved; // Alpha for 32-bit images.
+  Byte rgb_reserved;
 } RGBQuad;
 
 typedef struct TagBitmapInfoHeader
