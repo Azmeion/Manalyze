@@ -10,7 +10,7 @@ using json = nlohmann::json;
 namespace plugin
 {
 
-class HelloWorldPlugin : public IPlugin
+class SSIMPlugin : public IPlugin
 {
 
     int get_api_version() const override { return 1; }
@@ -233,7 +233,7 @@ class HelloWorldPlugin : public IPlugin
 
 extern "C"
 {
-    PLUGIN_API IPlugin* create() { return new HelloWorldPlugin(); }
+    PLUGIN_API IPlugin* create() { return new SSIMPlugin(); }
     PLUGIN_API void destroy(IPlugin* p) { delete p; }
 };
 

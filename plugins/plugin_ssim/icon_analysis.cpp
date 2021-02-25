@@ -80,33 +80,25 @@ void ico_header_read(boost::shared_ptr<IconDir>& p_icondir, const std::vector<By
 
     for (Long i = 0; i < p_icondir->id_count ; ++i)
     {
-        p_icondir->id_entries.push_back(*((IconDirentry*)(&buffer[nb_bytes_read])));
-        nb_bytes_read += sizeof(IconDirentry);
+        p_icondir->id_entries.push_back(*((IconDirEntry*)(&buffer[nb_bytes_read])));
+        nb_bytes_read += sizeof(IconDirEntry);
     }
 }
 
-// ----------------------------------------------------------------------------
-
-template<typename T> 
-void vector_cpy(std::vector<T>& vector, const boost::int64_t& nbr_pixel, const std::vector<Byte>& buffer, Long& nb_bytes_read){
-    vector.reserve(nbr_pixel);
-    vector.assign((T*)(&buffer[nb_bytes_read]), (T*)(&buffer[nb_bytes_read + nbr_pixel * sizeof(T)]));
-    nb_bytes_read += nbr_pixel * sizeof(T);
-};
 
 // ----------------------------------------------------------------------------
 
-Icon::Icon(IconDirentry& icondirentry, const std::vector<Byte>& buffer, const std::string& name, Long& nb_bytes_read) : _png(false), _nbr_pixel(-1)
+Icon::Icon(IconDirEntry& icon_dir_entry, const std::vector<Byte>& buffer, const std::string& name, Long& nb_bytes_read) : _png(false), _nbr_pixel(-1)
 {
-    unsigned b_height = icondirentry.b_height;
-    unsigned b_width = icondirentry.b_width;
+    unsigned b_height = icon_dir_entry.b_height;
+    unsigned b_width = icon_dir_entry.b_width;
     Word dimension = b_height;
     const Byte Png_Sig[8] = {137,80,78,71,13,10,26,10};
 
     // Regular icon sizes only
     if (!(b_height % MIN_ICON_SIZE) && !(b_width % MIN_ICON_SIZE))
     {
-        _p_icondir = boost::shared_ptr<IconDirentry>(new TagIconDirentry(icondirentry));
+        _p_icondir = boost::shared_ptr<IconDirEntry>(new TagIconDirEntry(icon_dir_entry));
 
         // Value 0 of b_height and b_width equals 256
         if (!(_nbr_pixel = b_height * b_width)) {
@@ -114,14 +106,14 @@ Icon::Icon(IconDirentry& icondirentry, const std::vector<Byte>& buffer, const st
             dimension = 256;
         }
 
-        nb_bytes_read = icondirentry.dw_image_offset;
+        nb_bytes_read = icon_dir_entry.dw_image_offset;
 
         // Icon can be a Bitmap or a PNG
         if (!strncmp((const char*)&buffer[nb_bytes_read], (char*)Png_Sig, 8))
         {
             _png = true;
             std::vector<Byte> image;
-            unsigned error = lodepng::decode(image, b_height, b_width, (const unsigned char*)(&buffer[nb_bytes_read]), (size_t)icondirentry.dw_bytes_in_res);
+            unsigned error = lodepng::decode(image, b_height, b_width, (const unsigned char*)(&buffer[nb_bytes_read]), (size_t)icon_dir_entry.dw_bytes_in_res);
             
             if(error) {
                 std::cout << "PNG decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
@@ -164,7 +156,7 @@ Icon::Icon(IconDirentry& icondirentry, const std::vector<Byte>& buffer, const st
 
 std::vector<DataIcon> ico_entries_read(const boost::shared_ptr<IconDir>& p_icondir, const std::vector<Byte>& buffer, const std::string& name, Long& nb_bytes_read) {
     std::vector<DataIcon> data;
-    for (IconDirentry ico : p_icondir->id_entries)
+    for (IconDirEntry ico : p_icondir->id_entries)
     {
         boost::shared_ptr<Icon> i(new Icon(ico, buffer, name, nb_bytes_read));
 
@@ -201,4 +193,19 @@ bool ico_sort(const DataIcon& ico1, const DataIcon& ico2) {
     return ico1.get_dimension() < ico2.get_dimension();
 }
 
+// ----------------------------------------------------------------------------
+/**
+ *  @brief Copy nbr_pixel from a buffer to a T-type vector
+ *
+ *  vector          T-type vector
+ *  nbr_pixel       Number of pixels to copy
+ *  buffer          Source buffer for the copy
+ *  nb_bytes_read   Number of bytes already read in the buffer
+ */
+template<typename T>
+void vector_cpy(std::vector<T>& vector, const boost::int64_t& nbr_pixel, const std::vector<Byte>& buffer, Long& nb_bytes_read) {
+    vector.reserve(nbr_pixel);
+    vector.assign((T*)(&buffer[nb_bytes_read]), (T*)(&buffer[nb_bytes_read + nbr_pixel * sizeof(T)]));
+    nb_bytes_read += nbr_pixel * sizeof(T);
+};
 } /* !namespace plugin */

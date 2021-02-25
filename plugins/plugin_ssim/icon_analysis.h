@@ -16,7 +16,7 @@ typedef boost::uint32_t DWord;
 typedef boost::uint64_t Long;
 
 /**
- *  @brief  Structure of a IconDirentry
+ *  @brief  Structure of a IconDirEntry
  * 
  *  b_width           Width, in pixels, of the image
  *  b_height          Height, in pixels, of the image
@@ -28,7 +28,7 @@ typedef boost::uint64_t Long;
  *  dw_image_offset   Offset of the image
  */
 
-typedef struct TagIconDirentry
+typedef struct TagIconDirEntry
 {
     Byte        b_width;
     Byte        b_height;
@@ -38,7 +38,7 @@ typedef struct TagIconDirentry
     Word        w_bit_count;
     DWord       dw_bytes_in_res;
     DWord       dw_image_offset;
-} IconDirentry;
+} IconDirEntry;
 
 /**
  *  @brief Structure of a IconDir
@@ -54,7 +54,7 @@ typedef struct TagIconDir
     Word           id_reserved;
     Word           id_type;
     Word           id_count;
-    std::vector<IconDirentry>   id_entries;
+    std::vector<IconDirEntry>   id_entries;
 } IconDir;
 
 /**
@@ -74,6 +74,22 @@ typedef struct TagRGBQuad
   Byte rgb_reserved;
 } RGBQuad;
 
+/**
+ *  @brief Structure of a Bitmap header
+ *
+ *  bi_size             Size of this header
+ *  bi_width            Image width (in px)
+ *  bi_height           Image height (in px)
+ *  bi_planes           Number of color planes (must be 1)
+ *  bi_bit_count        Number of bits per pixel / color depth
+ *  bi_compression      Compression method used
+ *  bi_size_image       Image size
+ *  bi_x_pels_per_metre Horizontal resolution of the image (px / metre)
+ *  bi_y_pels_per_metre Vertical resolution of the image (px / metre)
+ *  bi_clr_used         Number of colors in the color palette
+ *  bi_clr_important    Number of important colors used
+ */
+
 typedef struct TagBitmapInfoHeader
 {
   DWord bi_size;
@@ -83,39 +99,38 @@ typedef struct TagBitmapInfoHeader
   Word  bi_bit_count;
   DWord bi_compression;
   DWord bi_size_image;
-  Long  bi_x_pels_per_meter;
-  Long  bi_y_pels_per_meter;
+  Long  bi_x_pels_per_metre;
+  Long  bi_y_pels_per_metre;
   DWord bi_clr_used;
   DWord bi_clr_important;
 } BitmapInfoHeader;
 
+/**
+ *  @brief Structure of an Icon (bitmap) image
+ *
+ *  ic_header       Device Independant Bitmap header
+ *  ic_colors       Color table
+ *  ic_xor          DIB bits for the XOR mask
+ *  ic_and          DIB bits for the AND mask
+ */
+
 typedef struct TagIconImage
 {
-  BitmapInfoHeader     ic_header;   // DIB header
-  std::vector<RGBQuad> ic_colors;   // Color table
-  std::vector<Byte>    ic_xor;      // DIB bits for XOR mask
-  std::vector<Byte>    ic_and;      // DIB bits for AND mask
+  BitmapInfoHeader     ic_header;
+  std::vector<RGBQuad> ic_colors;
+  std::vector<Byte>    ic_xor;
+  std::vector<Byte>    ic_and;
 } IconImage, *LPIconImage;
 
-typedef struct TagPngHeader
-{
-  DWord width;
-  DWord height;
-  Byte  depth;
-  Byte  color_type;
-  Byte  compression;
-  Byte  filter;
-  Byte  interlace;
-} PngHeader;
-
-typedef struct PngImage
-{
-  PngHeader             ic_header;   // PNG Header
-  std::vector<RGBQuad>  ic_colors;   // Color table
-  std::vector<Byte>     ic_xor;      // DIB bits for XOR mask
-  std::vector<Byte>     ic_and;      // DIB bits for AND mask
-} PngImage;
-
+/**
+ *  @brief Image data useful for the SSIM comparison
+ *
+ *  _name           Name of the ICO file
+ *  _gray_table     Grayscale table
+ *  _dimension      Image dimension
+ *  _mean           Mean of the grayscale table
+ *  _variance       Variance of the grayscale table
+ */
 
 class DataIcon
 {
@@ -150,17 +165,25 @@ class DataIcon
     float ssim (DataIcon&);
 };
 
+/**
+ *  @brief Structure of an Icon
+ *
+ *  _p_icondir      Pointer on a IconDirEntry
+ *  _data           DataIcon of this IconDirEntry
+ *  _png            True if this Icon image is a PNG
+ *  _nbr_pixel      Number of pixels of this IconDirEntry image
+ */
 
 class Icon
 {
-  boost::shared_ptr<IconDirentry> _p_icondir;
+  boost::shared_ptr<IconDirEntry> _p_icondir;
   DataIcon _data;
   bool _png = false;
   boost::int64_t _nbr_pixel = 0;
 
   public : 
     Icon() {};
-    Icon(IconDirentry&, const std::vector<Byte>&, const std::string&, Long&);
+    Icon(IconDirEntry&, const std::vector<Byte>&, const std::string&, Long&);
     ~Icon() {};
     boost::int64_t get_nbr_pixel() const { return _nbr_pixel; };
     DataIcon get_data() const { return _data; };
