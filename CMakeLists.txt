@@ -69,7 +69,7 @@ if(OPENSSL_FOUND)
 endif()
 
 add_definitions(-DWITH_MANACOMMONS) # Use functions from manacommons.
-add_library(manape SHARED manape/pe.cpp manape/nt_values.cpp manape/utils.cpp manape/imports.cpp manape/resources.cpp manape/section.cpp manape/imported_library.cpp)
+add_library(manape SHARED manape/pe.cpp manape/nt_values.cpp manape/utils.cpp manape/imports.cpp manape/resources.cpp manape/section.cpp manape/imported_library.cpp manape/ordinals.cpp)
 
 add_library(manacommons SHARED manacommons/color.cpp manacommons/output_tree_node.cpp manacommons/escape.cpp manacommons/base64.cpp manacommons/plugin_framework/result.cpp)
 
@@ -112,7 +112,8 @@ else()
                 target_link_libraries(manalyze dl)
             endif()
             set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-            
+            set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'")
+
             # Compile the *nix authenticode plugin if OpenSSL was found.
             if (OPENSSL_FOUND)
                 add_library(plugin_authenticode SHARED plugins/plugin_authenticode/plugin_authenticode_openssl.cpp 

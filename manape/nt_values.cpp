@@ -505,7 +505,7 @@ boost::assign::map_list_of  ("WIN_CERT_TYPE_X509",                   1)
 // ----------------------------------------------------------------------------
 
 const flag_dict HEAP_FLAGS =
-    boost::assign::map_list_of    ("HEAP_NO_SERIALIZE",              1)
+    boost::assign::map_list_of  ("HEAP_NO_SERIALIZE",              1)
                                 ("HEAP_GENERATE_EXCEPTIONS",         4)
                                 ("HEAP_CREATE_ENABLE_EXECUTE",       0x40000);
 
@@ -693,9 +693,17 @@ const flag_dict COMP_ID_PRODID =
                                 ("VS 2015/2017/2019 runtime 28720",            0x7030)
                                 ("VS 2015/2017/2019 runtime 28720",            0x7030)
                                 ("VS 2015/2017/2019 runtime 28920",            0x70F8)
+                                ("VS 2015/2017/2019 runtime 29118",            0x71BE)
                                 ("VS2019 Update 6 (16.6.0) compiler 28805",    0x7085)
                                 ("VS2019 Update 6 (16.6.1-5) compiler 28806",  0x7086)
-                                ("VS2019 Update 7 (16.7.0-1) compiler 29111",  0x71B7)
+                                ("VS2019 Update 7 (16.7.0) compiler 29110",    0x71B6)
+                                ("VS2019 Update 7 (16.7.1) compiler 29111",    0x71B7)
+                                ("VS2019 Update 7 (16.7.2-4) compiler 29112",  0x71B8)
+                                ("VS2019 Update 8 (16.8.0-1) compiler 29333",  0x7295)
+                                ("VS2019 Update 8 (16.8.2) compiler 29334",    0x7296)
+                                ("VS2019 Update 8 (16.8.3) compiler 29335",    0x7297)
+                                ("VS2019 Update 8 (16.8.4) compiler 29336",    0x7298)
+                                ("VS2019 Update 8 (16.8.5-6) compiler 29337",  0x7299)
     ;
 
 // ----------------------------------------------------------------------------
