@@ -85,7 +85,6 @@ void ico_header_read(boost::shared_ptr<IconDir>& p_icondir, const std::vector<By
     }
 }
 
-
 // ----------------------------------------------------------------------------
 
 Icon::Icon(IconDirEntry& icon_dir_entry, const std::vector<Byte>& buffer, const std::string& name, Long& nb_bytes_read) : _png(false), _nbr_pixel(-1)
@@ -116,9 +115,11 @@ Icon::Icon(IconDirEntry& icon_dir_entry, const std::vector<Byte>& buffer, const 
             unsigned error = lodepng::decode(image, b_height, b_width, (const unsigned char*)(&buffer[nb_bytes_read]), (size_t)icon_dir_entry.dw_bytes_in_res);
             
             if(error) {
-                std::cout << "PNG decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
+                _nbr_pixel = -1;
+                //std::cout << "PNG decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
             }
             else if (b_height != dimension || b_width != dimension) {
+                _nbr_pixel = -1;
                 //std::cout << "/!\\ Inconsistency detected /!\\" << std::endl;
                 //std::cout << "Real height & width : " << b_height << "," << b_width<< std::endl;
                 //std::cout << "Header announced dimension : " << dimension << std::endl;
@@ -155,9 +156,10 @@ Icon::Icon(IconDirEntry& icon_dir_entry, const std::vector<Byte>& buffer, const 
                 //vector_cpy(p_icon_image->ic_and, _nbr_pixel, buffer, nb_bytes_read);      // Experimental
                 _data = DataIcon(name, p_icon_image->ic_colors, dimension);
             }
-            //else {
-            //    std::cout << "ICO BMP isn't 32bits. ICO ignored." << std::endl;
-            //}
+            else {
+                _nbr_pixel = -1;
+                //std::cout << "ICO BMP isn't 32bits. ICO ignored." << std::endl;
+            }
             
             
         }
