@@ -235,4 +235,6 @@ void ico_header_read(boost::shared_ptr<IconDir>&, const std::vector<Byte>&, Long
 
 bool ico_sort(const DataIcon&, const DataIcon&);
 
+template<typename T>
+void vector_cpy(std::vector<T>& vector, const boost::int64_t& nbr_pixel, const std::vector<Byte>& buffer, Long& nb_bytes_read);
 } /* !namespace plugin */

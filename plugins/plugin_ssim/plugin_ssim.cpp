@@ -30,7 +30,7 @@ class SSIMPlugin : public IPlugin
 
         mana::shared_resources resources = pe.get_resources();
 
-        std::vector<Byte> buffer;
+        boost::shared_ptr<const std::vector<Byte> > buffer;
 
         for (mana::pResource r : *resources )
         {
@@ -39,7 +39,7 @@ class SSIMPlugin : public IPlugin
             }
         }
 
-        if (!buffer.empty())
+        if (!buffer->empty())
         {
             // We need an IconDir to hold the data
             boost::shared_ptr<IconDir> p_icondir(new IconDir);      
@@ -52,11 +52,9 @@ class SSIMPlugin : public IPlugin
             std::string p_ico, p_json;
             json jo; 
 
-            ico_header_read(p_icondir, buffer, nb_bytes_read);
-            pe_dataicon = ico_entries_read(p_icondir, buffer, "pe", nb_bytes_read);
+            ico_header_read(p_icondir, *buffer, nb_bytes_read);
+            pe_dataicon = ico_entries_read(p_icondir, *buffer, "pe", nb_bytes_read);
             std::sort(pe_dataicon.begin(), pe_dataicon.end(), ico_sort);
-
-            buffer.clear();
 
             // Creation of the database
             for (boost::filesystem::directory_entry & f : boost::filesystem::directory_iterator("./../plugins/plugin_ssim/dataicon/ico/"))
@@ -66,21 +64,23 @@ class SSIMPlugin : public IPlugin
                 {
                     fname = f.path().leaf().string();
                     fname = fname.substr(0, fname.size() - 4);
+                    std::vector<Byte> ico_buffer;
 
-                    file_to_buf(f.path().string(), buffer);
+                    file_to_buf(f.path().string(), ico_buffer);
 
-                    if (!buffer.empty())
+                    if (!ico_buffer.empty())
                     {
                         nb_bytes_read = 0;
                         p_icondir = boost::shared_ptr<IconDir>(new IconDir);
-                        ico_header_read(p_icondir, buffer, nb_bytes_read);
-                        db_dataicon = ico_entries_read(p_icondir, buffer, fname, nb_bytes_read);
+                        ico_header_read(p_icondir, ico_buffer, nb_bytes_read);
+                        db_dataicon = ico_entries_read(p_icondir, ico_buffer, fname, nb_bytes_read);
 
                         for (DataIcon io : db_dataicon) {
                             database.push_back(io);
                         }
 
-                        buffer.clear();
+                        ico_buffer.clear();
+
                     }
                 }   
             }
@@ -178,7 +178,9 @@ class SSIMPlugin : public IPlugin
                             }
                         }
                         ++i;
-                        dimension_i = database[i].get_dimension();
+                        if (i < l) {
+                            dimension_i = database[i].get_dimension();
+                        }
                     }
                 }
 

@@ -96,7 +96,7 @@ Icon::Icon(IconDirEntry& icon_dir_entry, const std::vector<Byte>& buffer, const 
     const Byte Png_Sig[8] = {137,80,78,71,13,10,26,10};
 
     // Regular icon sizes only
-    if (!(b_height % MIN_ICON_SIZE) && !(b_width % MIN_ICON_SIZE))
+    if (!(b_height % MIN_ICON_SIZE) && !(b_width % MIN_ICON_SIZE) && b_height==b_width)
     {
         _p_icondir = boost::shared_ptr<IconDirEntry>(new TagIconDirEntry(icon_dir_entry));
 
@@ -118,7 +118,11 @@ Icon::Icon(IconDirEntry& icon_dir_entry, const std::vector<Byte>& buffer, const 
             if(error) {
                 std::cout << "PNG decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
             }
-            
+            else if (b_height != dimension || b_width != dimension) {
+                //std::cout << "/!\\ Inconsistency detected /!\\" << std::endl;
+                //std::cout << "Real height & width : " << b_height << "," << b_width<< std::endl;
+                //std::cout << "Header announced dimension : " << dimension << std::endl;
+            }
             else
             {
                 std::vector<RGBQuad> ic_color;
@@ -134,6 +138,7 @@ Icon::Icon(IconDirEntry& icon_dir_entry, const std::vector<Byte>& buffer, const 
                     rgb->rgb_reserved = (*p);
                     ic_color.push_back(*rgb);
                 }
+
                 _data = DataIcon(name, ic_color, dimension);
             }
         }
@@ -143,11 +148,18 @@ Icon::Icon(IconDirEntry& icon_dir_entry, const std::vector<Byte>& buffer, const 
             memcpy(&(p_icon_image->ic_header), &buffer[nb_bytes_read], sizeof(BitmapInfoHeader));
             nb_bytes_read += sizeof(BitmapInfoHeader);
 
+            if (p_icon_image->ic_header.bi_bit_count == 32)
+            {
+                vector_cpy(p_icon_image->ic_colors, _nbr_pixel, buffer, nb_bytes_read);
+                //vector_cpy(p_icon_image->ic_xor, _nbr_pixel, buffer, nb_bytes_read);      // Experimental
+                //vector_cpy(p_icon_image->ic_and, _nbr_pixel, buffer, nb_bytes_read);      // Experimental
+                _data = DataIcon(name, p_icon_image->ic_colors, dimension);
+            }
+            //else {
+            //    std::cout << "ICO BMP isn't 32bits. ICO ignored." << std::endl;
+            //}
             
-            vector_cpy(p_icon_image->ic_colors, _nbr_pixel, buffer, nb_bytes_read);
-            //vector_cpy(p_icon_image->ic_xor, _nbr_pixel, buffer, nb_bytes_read);      // Experimental
-            //vector_cpy(p_icon_image->ic_and, _nbr_pixel, buffer, nb_bytes_read);      // Experimental
-            _data = DataIcon(name, p_icon_image->ic_colors, dimension);
+            
         }
     }
 }
